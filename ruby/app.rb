@@ -7,6 +7,8 @@ require 'rack/session/dalli'
 require 'erubis'
 require 'tempfile'
 require 'redcarpet'
+require 'redis'
+require 'hiredis'
 
 class Isucon3App < Sinatra::Base
   $stdout.sync = true
@@ -17,6 +19,10 @@ class Isucon3App < Sinatra::Base
 
   helpers do
     set :erb, :escape_html => true
+
+    def redis
+      @redis ||= Redis.new(driver: :hiredis)
+    end
 
     def users
       unless @users
@@ -201,8 +207,10 @@ class Isucon3App < Sinatra::Base
         halt 404, "404 Not Found"
       end
     end
+
     memo["username"] = users[memo["user"].to_i]["username"]
-    memo["content_html"] = gen_markdown(memo["content"])
+    memo["content_html"] = redis.get("isucon3:memo:html:#{memo["id"]}")
+
     if user["id"] == memo["user"]
       cond = ""
     else
@@ -243,6 +251,8 @@ class Isucon3App < Sinatra::Base
       Time.now,
     )
     memo_id = mysql.last_id
+    redis.set("isucon3:memo:html:#{memo_id}", gen_markdown(params["content"]))
+
     redirect "/memo/#{memo_id}"
   end
 
