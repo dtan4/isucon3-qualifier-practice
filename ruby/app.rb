@@ -18,6 +18,10 @@ class Isucon3App < Sinatra::Base
   helpers do
     set :erb, :escape_html => true
 
+    def users
+      @users ||= {}
+    end
+
     def connection
       return $mysql if $mysql
 
@@ -40,7 +44,8 @@ class Isucon3App < Sinatra::Base
       mysql = connection
       user_id = session["user_id"]
       if user_id
-        user = mysql.xquery("SELECT * FROM users WHERE id=?", user_id).first
+        users[user_id] = mysql.xquery("SELECT * FROM users WHERE id=?", user_id).first unless users[user_id]
+        user = users[user_id]
         headers "Cache-Control" => "private"
       end
       return user || {}
