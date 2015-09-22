@@ -19,7 +19,22 @@ class Isucon3App < Sinatra::Base
     set :erb, :escape_html => true
 
     def users
-      @users ||= {}
+      unless @users
+        @users = {}
+        # id, username, password, salt, last_access
+        columns = %w(id username password salt last_access)
+        IO.read(File.dirname(__FILE__) + "/../config/users.tsv").strip.split("\n").each do |user|
+          user_hash = Hash[columns.zip(user.strip.split("\t"))]
+          user_hash['id'] = user_hash['id'].to_i
+          @users[user_hash['id']] = user_hash
+        end
+
+        open(File.dirname(__FILE__) + "/../config/users.debug", "w+") do |f|
+          f.puts @users.inspect
+        end
+      end
+
+      return @users
     end
 
     def connection
@@ -44,7 +59,6 @@ class Isucon3App < Sinatra::Base
       mysql = connection
       user_id = session["user_id"]
       if user_id
-        users[user_id] = mysql.xquery("SELECT * FROM users WHERE id=?", user_id).first unless users[user_id]
         user = users[user_id]
         headers "Cache-Control" => "private"
       end
@@ -88,7 +102,7 @@ class Isucon3App < Sinatra::Base
     total = mysql.query("SELECT count(*) AS c FROM memos WHERE is_private=0").first["c"]
     memos = mysql.query("SELECT * FROM memos WHERE is_private=0 ORDER BY created_at DESC, id DESC LIMIT 100")
     memos.each do |row|
-      row["username"] = mysql.xquery("SELECT username FROM users WHERE id=?", row["user"]).first["username"]
+      row["username"] = users[row["user"].to_i]["username"]
     end
     erb :index, :layout => :base, :locals => {
       :memos => memos,
@@ -109,7 +123,7 @@ class Isucon3App < Sinatra::Base
       halt 404, "404 Not Found"
     end
     memos.each do |row|
-      row["username"] = mysql.xquery("SELECT username FROM users WHERE id=?", row["user"]).first["username"]
+      row["username"] = users[row["user"].to_i]["username"]
     end
     erb :index, :layout => :base, :locals => {
       :memos => memos,
@@ -136,16 +150,23 @@ class Isucon3App < Sinatra::Base
   end
 
   post '/signin' do
-    mysql = connection
-
     username = params[:username]
     password = params[:password]
-    user = mysql.xquery('SELECT id, username, password, salt FROM users WHERE username=?', username).first
+    user = users.values.find { |u| u['username'] == username }
     if user && user["password"] == Digest::SHA256.hexdigest(user["salt"] + password)
       session.clear
       session["user_id"] = user["id"]
       session["token"] = Digest::SHA256.hexdigest(Random.new.rand.to_s)
-      mysql.xquery("UPDATE users SET last_access=now() WHERE id=?", user["id"])
+      u = users[user["id"].to_i]
+      users.merge!({
+        u['user_id'] => {
+          'id' => u['id'],
+          'username' => u['username'],
+          'password' => u['password'],
+          'salt' => u['salt'],
+          'last_access' => Time.now.to_s,
+        }
+      })
       redirect "/mypage"
     else
       erb :signin, :layout => :base, :locals => {
@@ -179,7 +200,7 @@ class Isucon3App < Sinatra::Base
         halt 404, "404 Not Found"
       end
     end
-    memo["username"] = mysql.xquery('SELECT username FROM users WHERE id=?', memo["user"]).first["username"]
+    memo["username"] = users[memo["user"].to_i]["username"]
     memo["content_html"] = gen_markdown(memo["content"])
     if user["id"] == memo["user"]
       cond = ""
