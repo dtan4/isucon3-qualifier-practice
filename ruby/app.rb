@@ -24,7 +24,7 @@ class Isucon3App < Sinatra::Base
         # id, username, password, salt
         columns = %w(id username password salt)
         IO.read(File.dirname(__FILE__) + "/../config/users.tsv").strip.split("\n").each do |user|
-          user_hash = Hash[columns.zip(user.strip.split("\t"))[0..-2]]
+          user_hash = Hash[columns.zip(user.strip.split("\t")[0..-1])]
           user_hash['id'] = user_hash['id'].to_i
           @users[user_hash['id']] = user_hash
         end
