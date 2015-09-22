@@ -1,0 +1,3 @@
+#!/bin/bash
+
+itamae ssh --host 54.178.164.15 -u isucon -i ~/.ssh/isucon3-practice.pem recipe.rb
