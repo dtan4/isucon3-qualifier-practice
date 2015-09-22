@@ -127,7 +127,8 @@ class Isucon3App < Sinatra::Base
     mysql = connection
     user  = get_user
 
-    total = mysql.query("SELECT count(*) AS c FROM memos WHERE is_private=0").first["c"]
+    total = redis.get("isucon3:memo:total")
+
     memos = mysql.query("SELECT * FROM memos WHERE is_private=0 ORDER BY created_at DESC, id DESC LIMIT 100")
     memos.each do |row|
       row["username"] = users[row["user"].to_i]["username"]
@@ -146,7 +147,8 @@ class Isucon3App < Sinatra::Base
     user  = get_user
 
     page  = params["page"].to_i
-    total = mysql.xquery('SELECT count(*) AS c FROM memos WHERE is_private=0').first["c"]
+
+    total = redis.get("isucon3:memo:total")
     memos = mysql.xquery("SELECT * FROM memos WHERE is_private=0 ORDER BY created_at DESC, id DESC LIMIT 100 OFFSET #{page * 100}")
     if memos.count == 0
       halt 404, "404 Not Found"
@@ -265,6 +267,10 @@ class Isucon3App < Sinatra::Base
     )
     memo_id = mysql.last_id
     redis.set("isucon3:memo:html:#{memo_id}", gen_markdown(params["content"]))
+
+    if params["is_private"] && params["is_private"].to_i == 0
+      redis.incr("isucon3:memo:total")
+    end
 
     redirect "/memo/#{memo_id}"
   end
