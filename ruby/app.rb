@@ -34,7 +34,18 @@ class Isucon3App < Sinatra::Base
         end
       end
 
-      return @users
+      @users
+    end
+
+    def users_by_username
+      unless @users_by_username
+        @users_by_username = {}
+        users.values.each do |user|
+          @users_by_username[user["username"]] = user
+        end
+      end
+
+      @users_by_username
     end
 
     def connection
@@ -152,7 +163,7 @@ class Isucon3App < Sinatra::Base
   post '/signin' do
     username = params[:username]
     password = params[:password]
-    user = users.values.find { |u| u['username'] == username }
+    user = users_by_username[username]
     if user && user["password"] == Digest::SHA256.hexdigest(user["salt"] + password)
       session.clear
       session["user_id"] = user["id"]
