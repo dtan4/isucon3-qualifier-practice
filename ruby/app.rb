@@ -6,6 +6,7 @@ require 'dalli'
 require 'rack/session/dalli'
 require 'erubis'
 require 'tempfile'
+require 'redcarpet'
 
 class Isucon3App < Sinatra::Base
   $stdout.sync = true
@@ -30,6 +31,10 @@ class Isucon3App < Sinatra::Base
       )
     end
 
+    def markdown
+      @markdown ||= Redcarpet::Markdown.new(Redcarpet::Render::HTML)
+    end
+
     def get_user
       mysql = connection
       user_id = session["user_id"]
@@ -48,12 +53,7 @@ class Isucon3App < Sinatra::Base
     end
 
     def gen_markdown(md)
-      tmp = Tempfile.open("isucontemp")
-      tmp.puts(md)
-      tmp.close
-      html = `../bin/markdown #{tmp.path}`
-      tmp.unlink
-      return html
+      markdown.render(md)
     end
 
     def anti_csrf
