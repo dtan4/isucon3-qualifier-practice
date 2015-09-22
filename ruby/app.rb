@@ -110,6 +110,17 @@ class Isucon3App < Sinatra::Base
       base = "#{scheme}://#{request.host}#{port}#{request.script_name}"
       "#{base}#{path}"
     end
+
+    def memos_html(memos)
+      memo_url = url_for('/memo/')
+      memos.to_a.map do |memo|
+      <<-EOS.strip
+<li>
+  <a href="#{memo_url}#{memo['id']}">#{memo["content"].split(/\r?\n/).first}</a> by #{memo["username"]} (#{memo["created_at"]})
+</li>
+      EOS
+      end
+    end
   end
 
   get '/' do
@@ -121,8 +132,9 @@ class Isucon3App < Sinatra::Base
     memos.each do |row|
       row["username"] = users[row["user"].to_i]["username"]
     end
+
     erb :index, :layout => :base, :locals => {
-      :memos => memos,
+      :memos => memos_html(memos),
       :page  => 0,
       :total => total,
       :user  => user,
@@ -142,8 +154,9 @@ class Isucon3App < Sinatra::Base
     memos.each do |row|
       row["username"] = users[row["user"].to_i]["username"]
     end
+
     erb :index, :layout => :base, :locals => {
-      :memos => memos,
+      :memos => memos_html(memos),
       :page  => page,
       :total => total,
       :user  => user,
